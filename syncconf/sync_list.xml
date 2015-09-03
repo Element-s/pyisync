@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sync>
+    <directories>
+    <!--dirName为需要同步的目录，如果对该目录下的所有文件都同步则inlude为*,
+    否则sub节点为需要同步的文件或子目录列表，即同步白名单-->
+        <directory name="/opt/etc" include="">
+            <sub name="t1.xml" isdir="no"/>
+            <sub name="t2.conf" isdir="no"/>
+            <sub name="test/t3.conf" isdir="no"/>
+            <sub name="test2/test3" isdir="yes"/>
+        </directory>
+        <directory name="/opt/test" include="">
+            <sub name="dir1" isdir="yes"/>
+            <sub name="dir2/dir3" isdir="yes"/>
+        </directory>
+        <directory name="/home" include="*"/>
+        <directory name="/etc" include="">
+            <sub name="group" isdir="no"/>
+            <sub name="passwd" isdir="no"/>
+            <sub name="shadow" isdir="no"/>
+        </directory>
+    </directories>
+<safefiles>
+    <!--safefiles为传输时需要加密的文件-->
+    <safefile name="/etc/shadow"/>
+    <safefile name="/opt/etc/t2.xml"/>
+</safefiles>
+</sync>
+
