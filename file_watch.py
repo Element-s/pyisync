@@ -25,7 +25,8 @@ class RetryThread(threading.Thread):
     """ sync retry thread
     """
 
-    def __init__(self, name, retryq, peer_ip, retry_interval=120, crontab=3600):
+    def __init__(self, name, retryq, remote_ip_lst=None,
+                 retry_interval=120, crontab=3600):
         """ init func
 
         @param name: thread name
@@ -39,12 +40,14 @@ class RetryThread(threading.Thread):
         """
         threading.Thread.__init__(self, name=name)
         self.retryq = retryq
-        self.peer_ip = peer_ip
+        if remote_ip_lst is None:
+            self.remote_ip_lst = []
+        self.remote_ip_lst = remote_ip_lst
         self.retry_interval = retry_interval
         self.crontab_interval = crontab
         self.crontab_start = int(time.time()) # 定时开始时间
         self._stop_event = threading.Event()
-        self.full_sync_thread = None
+        self.full_threads = {}
 
     def stop(self):
         """
@@ -68,14 +71,16 @@ class RetryThread(threading.Thread):
                         # full sync
                         self.crontab_start = now_time
                         LOGGER.info('Start files full sync!peer ip:%s',
-                                    str(self.peer_ip))
-                        if self.full_sync_thread is not None \
-                        and self.full_sync_thread.isAlive():
-                            self.full_sync_thread.stop()
-                            self.full_sync_thread = None
-                        self.full_sync_thread = FullSyncThread(self.peer_ip)
-                        self.full_sync_thread.setDaemon(True)
-                        self.full_sync_thread.start()
+                                    str(self.remote_ip_lst))
+                        for remote_ip in self.remote_ip_lst:
+                            full_thread = self.full_threads.get(remote_ip)
+                            if full_thread is not None \
+                            and full_thread.isAlive():
+                                full_thread.stop()
+                                self.full_threads[remote_ip] = None
+                            self.full_threads[remote_ip] = FullSyncThread(remote_ip)
+                            self.full_threads[remote_ip].setDaemon(True)
+                            self.full_threads[remote_ip].start()
                     time.sleep(0.5)
                 else:
                     sync_dict = self.retryq.get(True)
@@ -101,12 +106,12 @@ class SyncThreadManager(object):
     """ sync thread manager, create and manage sync threads
     """
     def __init__(self, thread_num=5, cond=None, eventq=None, retryq=None,
-                 remote_ip='127.0.0.1'):
+                 remote_ip_lst=None):
         self.threads = []
         self.__init_thread_pool(thread_num, cond, eventq,
-                                retryq, remote_ip)
+                                retryq, remote_ip_lst)
 
-    def __init_thread_pool(self, thread_num, cond, eventq, retryq, remote_ip):
+    def __init_thread_pool(self, thread_num, cond, eventq, retryq, remote_ip_lst):
         """ init thread pool
         """
         for i in range(thread_num):
@@ -114,7 +119,7 @@ class SyncThreadManager(object):
             self.threads.append(SyncThread(thread_name, cond=cond,
                                            eventq=eventq,
                                            retryq=retryq,
-                                           remote_ip=remote_ip))
+                                           remote_ip_lst=remote_ip_lst))
 
     def start_all(self):
         """ start all sync threads
@@ -148,7 +153,7 @@ class SyncThread(threading.Thread):
         threading.Thread.__init__(self, name=name)
         self.my_init(**kwargs)
 
-    def my_init(self, cond=None, eventq=None, retryq=None, remote_ip='127.0.0.1'):
+    def my_init(self, cond=None, eventq=None, retryq=None, remote_ip_lst=None):
         """init vars
 
         @param cond: condition var
@@ -161,7 +166,7 @@ class SyncThread(threading.Thread):
         self.cond = cond
         self.eventq = eventq
         self.retryq = retryq # 同步重试命令队列
-        self.remote_ip = remote_ip
+        self.remote_ip_lst = remote_ip_lst
         self._stop_event = threading.Event()
         self.sync_files = SyncFiles()
         self.encrypt_set = self.sync_files.encrypt_set
@@ -173,31 +178,37 @@ class SyncThread(threading.Thread):
         @param event: event
         @type event: pyinotify.Event
         """
+        sync_cmds = []
         if event.mask & (IN_DELETE | IN_MOVED_FROM):
             # get sync delete remote file cmd
-            sync_cmd = self.sync_files.combine_del_cmd(self.remote_ip,
-                                                       event.pathname,
-                                                       event.dir)
+            for remote_ip in self.remote_ip_lst:
+                sync_cmd = self.sync_files.combine_del_cmd(remote_ip,
+                                                           event.pathname,
+                                                           event.dir)
+                sync_cmds.append(sync_cmd)
         else:
             # get sync create or modify file cmd
             is_crypt = self.sync_files.is_encrypt_file(event.pathname,
                                                      self.encrypt_set)
-            sync_cmd = self.sync_files.combine_other_cmd(self.remote_ip,
-                                                         event.pathname,
-                                                         event.dir,
-                                                         is_crypt)
-        LOGGER.debug('sync_cmd: %s', sync_cmd)
-        if sync_cmd:
-            process = subprocess.Popen(sync_cmd, shell=True,
-                                    stderr=subprocess.PIPE)
-            retcode = process.wait()
-            if retcode != 0:
-                LOGGER.warning('sync failed:%s.Insert cmd into retry queue!',
-                             process.stderr.read())
-                sync_dict = {}
-                sync_dict['cmd'] = sync_cmd
-                sync_dict['time'] = int(time.time())
-                self.retryq.put(sync_dict)
+            for remote_ip in self.remote_ip_lst:
+                sync_cmd = self.sync_files.combine_other_cmd(remote_ip,
+                                                             event.pathname,
+                                                             event.dir,
+                                                             is_crypt)
+                sync_cmds.append(sync_cmd)
+        LOGGER.debug('sync_cmds: %s', sync_cmds)
+        for sync_cmd in sync_cmds:
+            if sync_cmd:
+                process = subprocess.Popen(sync_cmd, shell=True,
+                                        stderr=subprocess.PIPE)
+                retcode = process.wait()
+                if retcode != 0:
+                    LOGGER.warning('sync failed:%s.Insert cmd into retry queue!',
+                                 process.stderr.read())
+                    sync_dict = {}
+                    sync_dict['cmd'] = sync_cmd
+                    sync_dict['time'] = int(time.time())
+                    self.retryq.put(sync_dict)
 
     def stop(self):
         """

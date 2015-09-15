@@ -15,6 +15,7 @@ class SyncConf(object):
     SYNC_CFG_FILE = 'sync_list.xml'
     RSYNC_CFG_FILE = 'rsyncd.conf'
     RSYNC_USER = 'rsyncuser'
+    RSYNC_PWD = 'PyIsync123'
     RSYNC_SECRET_FILE = 'rsyncd.secrets'
     SYNC_TMP_DIR = '/opt/synctmp'
     # rsync sync cmd

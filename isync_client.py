@@ -7,7 +7,6 @@ Created on 2015-09-14
 
 '''
 
-
 import os
 import threading
 from collections import deque
@@ -20,7 +19,7 @@ from  pyinotify import  WatchManager, ThreadedNotifier, ExcludeFilter, \
 
 
 from file_watch import EventHandler, SyncThreadManager, \
-                RetryThread, FullSyncThread
+                RetryThread
 from common import SyncConf
 from utils import SyncFiles
 
@@ -33,13 +32,13 @@ class SyncClient(object):
     """Real-time sync client
     """
 
-    def __init__(self, remote_ip, local_ip=''):
+    def __init__(self, remote_ip_lst, local_ip=''):
         """
         Constructor
         """
         self.sync_files = SyncFiles()
         self.local_ip = local_ip
-        self.remote_ip = remote_ip
+        self.remote_ip_lst = remote_ip_lst
         self.client_notifier = None
         self.sync_manager = None
         self.retry_thread = None
@@ -131,8 +130,9 @@ class SyncClient(object):
                                                     cond, eventq)
             self.sync_manager = SyncThreadManager(thread_num=3, cond=cond,
                                     eventq=eventq, retryq=retryq,
-                                    remote_ip=self.remote_ip)
-            self.retry_thread = RetryThread('retrythread', retryq, self.remote_ip)
+                                    remote_ip_lst=self.remote_ip_lst)
+            self.retry_thread = RetryThread('retrythread', retryq,
+                                            self.remote_ip_lst)
 
             # 设置并启动线程
             self.client_notifier.setDaemon(True)

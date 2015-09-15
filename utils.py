@@ -323,5 +323,18 @@ class SyncFiles(object):
                 fp.write('[%s]\r\n' % key)
                 fp.write('path = %s\r\n' % sec_names[key])
 
+    def update_rsync_secret(self, is_client=True):
+        """update rsyncd.secrets file
+
+        @param is_client: is client or server
+        """
+        LOGGER.debug('Update rsync secret file')
+        if is_client:
+            with open(self.rsync_secret_path, 'w') as f:
+                f.write(SyncConf.RSYNC_PWD)
+        else:
+            with open(self.rsync_secret_path, 'w') as f:
+                f.write('%s:%s' % (SyncConf.RSYNC_USER, SyncConf.RSYNC_PWD))
+        os.chmod(self.rsync_secret_path, 0600)
 
 
