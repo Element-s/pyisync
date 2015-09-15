@@ -9,7 +9,7 @@ import os
 import subprocess
 from xml.etree import ElementTree
 
-from syncconf import SyncConf
+from common import SyncConf
 from isync_logger import logger_init
 LOGGER = logger_init('hasync.sync_utils')
 
@@ -169,7 +169,7 @@ class SyncFiles(object):
         self.cfg_dir = os.path.join(cwd_dir, 'syncconf')
         self.file_path = os.path.join(self.cfg_dir, SyncConf.SYNC_CFG_FILE)
         self.rsync_cfg_path = os.path.join(self.cfg_dir, SyncConf.RSYNC_CFG_FILE)
-        self.rsync_secret_path = os.path.join(self.cfg_dir, SyncConf.RSYNC_CFG_FILE)
+        self.rsync_secret_path = os.path.join(self.cfg_dir, SyncConf.RSYNC_SECRET_FILE)
 
     def get_watch_path(self, file_path):
         """Get file's root directory
@@ -229,7 +229,7 @@ class SyncFiles(object):
                 execute_cmd(tar_cmd, shell=True)
                 file_path = dst_path
 
-        root_path = self.get_monitor_path(file_path)
+        root_path = self.get_watch_path(file_path)
         if root_path:
             dst_node = root_path[1:].replace('/', '_') # remote module name
             sync_cmd = SyncConf.RSYNC_CMD % self.rsync_secret_path

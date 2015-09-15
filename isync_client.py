@@ -13,7 +13,6 @@ import threading
 from collections import deque
 from Queue import Queue
 import traceback
-from argparse import ArgumentParser
 
 from  pyinotify import  WatchManager, ThreadedNotifier, ExcludeFilter, \
                         IN_DELETE, IN_CREATE, IN_CLOSE_WRITE, IN_MOVED_TO, \
@@ -23,20 +22,24 @@ from  pyinotify import  WatchManager, ThreadedNotifier, ExcludeFilter, \
 from file_watch import EventHandler, SyncThreadManager, \
                 RetryThread, FullSyncThread
 from common import SyncConf
+from utils import SyncFiles
 
 from isync_logger import logger_init
 LOGGER = logger_init('pyisync.isync_client')
+print LOGGER.name
+print LOGGER.handlers
 
 
 
 class SyncClient(object):
-    """Real-time sync client 
+    """Real-time sync client
     """
 
     def __init__(self, remote_ip, local_ip=''):
         """
         Constructor
         """
+        self.sync_files = SyncFiles()
         self.local_ip = local_ip
         self.remote_ip = remote_ip
         self.client_notifier = None
@@ -121,16 +124,17 @@ class SyncClient(object):
             cond = threading.Condition()
             eventq = deque()
             retryq = Queue(SyncConf.MAX_QUEUE_LENGTH)
-            monitor_list = self.sync_files.monitor_lst
+            monitor_list = self.sync_files.watch_lst
             sync_lst = self.sync_files.sync_lst
 
             # 初始化线程
-            self.client_notifier = self.__monitor_thread(tuple(monitor_list),
+            self.client_notifier = self.__watch_thread(tuple(monitor_list),
                                                     tuple(sync_lst),
                                                     cond, eventq)
             self.sync_manager = SyncThreadManager(thread_num=3, cond=cond,
-                                    eventq=eventq, retryq=retryq)
-            self.retry_thread = RetryThread('retrythread', retryq, self.peer_ip)
+                                    eventq=eventq, retryq=retryq,
+                                    remote_ip=self.remote_ip)
+            self.retry_thread = RetryThread('retrythread', retryq, self.remote_ip)
 
             # 设置并启动线程
             self.client_notifier.setDaemon(True)

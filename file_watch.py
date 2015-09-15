@@ -100,18 +100,21 @@ class RetryThread(threading.Thread):
 class SyncThreadManager(object):
     """ sync thread manager, create and manage sync threads
     """
-    def __init__(self, thread_num=5, cond=None, eventq=None, retryq=None):
+    def __init__(self, thread_num=5, cond=None, eventq=None, retryq=None,
+                 remote_ip='127.0.0.1'):
         self.threads = []
-        self.__init_thread_pool(thread_num, cond, eventq, retryq)
+        self.__init_thread_pool(thread_num, cond, eventq,
+                                retryq, remote_ip)
 
-    def __init_thread_pool(self, thread_num, cond, eventq, retryq):
+    def __init_thread_pool(self, thread_num, cond, eventq, retryq, remote_ip):
         """ init thread pool
         """
         for i in range(thread_num):
             thread_name = "syncthread%d" % i
             self.threads.append(SyncThread(thread_name, cond=cond,
                                            eventq=eventq,
-                                           retryq=retryq))
+                                           retryq=retryq,
+                                           remote_ip=remote_ip))
 
     def start_all(self):
         """ start all sync threads
@@ -145,7 +148,7 @@ class SyncThread(threading.Thread):
         threading.Thread.__init__(self, name=name)
         self.my_init(**kwargs)
 
-    def my_init(self, cond=None, eventq=None, retryq=None):
+    def my_init(self, cond=None, eventq=None, retryq=None, remote_ip='127.0.0.1'):
         """init vars
 
         @param cond: condition var
@@ -158,6 +161,7 @@ class SyncThread(threading.Thread):
         self.cond = cond
         self.eventq = eventq
         self.retryq = retryq # 同步重试命令队列
+        self.remote_ip = remote_ip
         self._stop_event = threading.Event()
         self.sync_files = SyncFiles()
         self.encrypt_set = self.sync_files.encrypt_set
@@ -171,14 +175,14 @@ class SyncThread(threading.Thread):
         """
         if event.mask & (IN_DELETE | IN_MOVED_FROM):
             # get sync delete remote file cmd
-            sync_cmd = self.sync_files.combine_del_cmd(self.peer_ip,
+            sync_cmd = self.sync_files.combine_del_cmd(self.remote_ip,
                                                        event.pathname,
                                                        event.dir)
         else:
             # get sync create or modify file cmd
-            is_crypt = self.sync_files.is_crypt_file(event.pathname,
-                                                     self.crypt_set)
-            sync_cmd = self.sync_files.combine_other_cmd(self.peer_ip,
+            is_crypt = self.sync_files.is_encrypt_file(event.pathname,
+                                                     self.encrypt_set)
+            sync_cmd = self.sync_files.combine_other_cmd(self.remote_ip,
                                                          event.pathname,
                                                          event.dir,
                                                          is_crypt)
