@@ -9,6 +9,7 @@ pyinotofy+rsync for real-time sync files
 * Linux ≥ 2.6.13
 * Python ≥ 2.4
 * Pyinotify
+* rsync
 
 ##Watch a directory
 #Just unzip and do:
