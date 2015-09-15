@@ -11,7 +11,7 @@ pyinotofy+rsync for real-time sync files
 * Pyinotify
 * rsync
 
-##Watch a directory
+##Watch and sync directories or files
 #Just unzip and do:
 Modify sync_list.xml in syncconf directory, add your watch directories or files.
 
