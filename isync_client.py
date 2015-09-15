@@ -26,8 +26,6 @@ from utils import SyncFiles
 
 from isync_logger import logger_init
 LOGGER = logger_init('pyisync.isync_client')
-print LOGGER.name
-print LOGGER.handlers
 
 
 

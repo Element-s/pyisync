@@ -11,9 +11,6 @@ from isync_client import SyncClient
 
 from isync_logger import logger_init
 LOGGER = logger_init('pyisync')
-print LOGGER.name
-print LOGGER.handlers
-
 
 if __name__ == '__main__':
     prog_desc = 'Real-time client command'
